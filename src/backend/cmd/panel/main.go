@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/app"
+	"github.com/bearbine/EasyGround/src/backend/internal/panel/config"
 )
 
 //========================
@@ -24,6 +25,12 @@ func run() int {
 
 	//структурированные логи
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	//читаем и чекаем настройки до запуска
+	cfg,err := config.Load()
+	if err != nil{
+		logger.Error("ошибка настроек","error",err)
+		return 1
+	}
 
 	//CTRL+C иЛИ SIGTERM ОТМЕНЯЕТ КОНТЕКСТ
 	ctx, stop := signal.NotifyContext(
@@ -34,7 +41,7 @@ func run() int {
 	defer stop()
 
 	logger.Info("запуск","addr", *addr)
-	if err := app.Run(ctx, *addr,logger); err != nil {
+	if err := app.Run(ctx, *addr,cfg,logger); err != nil {
 		logger.Error("завершение с ошибкой","error",err)
 		return 1
 	}

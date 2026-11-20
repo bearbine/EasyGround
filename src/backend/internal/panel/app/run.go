@@ -7,10 +7,19 @@ import (
 	"net/http"
 	"time"
 	"log/slog"
+
+	"github.com/bearbine/EasyGround/src/backend/internal/panel/config"
+	"github.com/bearbine/EasyGround/src/backend/internal/panel/storage/postgres"
 )
 //===============================
 //запускаем сервер. работаем до ошибки или отмены
-func Run(ctx context.Context, addr string, logger *slog.Logger) error {
+func Run(ctx context.Context, addr string,cfg config.Config, logger *slog.Logger) error {
+	//создаем пул и проверяем соединение до запуска сервера
+	pool, err := postgres.Open(ctx, cfg.DatabaseURL)
+	if err !=nil{return err}
+	defer pool.Close()
+	logger.Info("Покдлючение к PostgreSQL УСТАНОВЛЕНО")
+	
 	server := newServer(addr,logger)
 
 	//канал дает нам результат
