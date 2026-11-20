@@ -4,12 +4,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"log/slog"
+	"io"
 )
 
 //TestRoutes проверяет маршруты через тот же обработчик
 //котоырй потом подключи к хттпсерверу
 func TestRoutes(t *testing.T){
-	handler := NewHandler()
+	//в тестах маршрутов отбрасываем логи что бы не засорять вывод
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger)
 
 	//каждый елемент описывает отдельную проверку
 	tests := []struct {

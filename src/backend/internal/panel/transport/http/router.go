@@ -1,12 +1,17 @@
 package httptransport
 
-import "net/http"
+import (
+	"net/http"
+	"log/slog"
+)
 
+//=======================
 // NewHandler создает маршрутизатор хттп запросов панели
-func NewHandler() http.Handler{
+func NewHandler(logger *slog.Logger) http.Handler{
 	mux := http.NewServeMux() 
 	// направляем запрос в обработчик
 	mux.HandleFunc("GET /healthz", health)
 
-	return mux
+	//оборачивание всех маршрутов
+	return requestLogging(logger,mux)
 }

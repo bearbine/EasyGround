@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"log/slog"
 )
 //===============================
 //запускаем сервер. работаем до ошибки или отмены
-func Run(ctx context.Context, addr string) error {
-	server := newServer(addr)
+func Run(ctx context.Context, addr string, logger *slog.Logger) error {
+	server := newServer(addr,logger)
 
 	//канал дает нам результат
 	//в то время буфер дает отправить результат без простоя

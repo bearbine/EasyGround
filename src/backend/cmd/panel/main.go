@@ -34,7 +34,7 @@ func run() int {
 	defer stop()
 
 	logger.Info("запуск","addr", *addr)
-	if err := app.Run(ctx, *addr); err != nil {
+	if err := app.Run(ctx, *addr,logger); err != nil {
 		logger.Error("завершение с ошибкой","error",err)
 		return 1
 	}
