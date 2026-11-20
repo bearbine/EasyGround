@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"log/slog"
+	"io"
 )
 
 //======================
@@ -45,5 +47,38 @@ func TestStatusWriterKeepsFirstStatus(t *testing.T){
 	//проверяем статус, отправленный клиенту
 	if recorder.Code != http.StatusCreated{
 		t.Fatalf("статус ответа: получил %d, хотя 201", recorder.Code)
+	}
+}
+
+//обработчик и клиент должны получить один и тот же ид
+func TestRequestIDReachesHandler(t *testing.T){
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	var handlerID string
+
+	//тестовый обработчик читает ид из контекста
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerID = RequestID(r.Context())
+		w.WriteHeader(http.StatusNoContent)
+	})
+	handler := requestLogging(logger,next)
+	r := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+	//панель должна создать свой ид НО НИКАК НЕ ДОВЕРЯЯ ВХОДЯЩЕМУ ЗАПРОСУ
+	r.Header.Set("X-Request-ID", "client-supplied-id")
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	response := w.Result()
+	defer response.Body.Close()
+
+	if handlerID == "" {
+		t.Fatal("обработчик не получил request_id")
+	}
+	if response.Header.Get("X-Request-ID") != handlerID{
+		t.Fatal("ид в ответе не совпадает с ид в контексте")
+	}
+	if handlerID == "client-supplied-id"{
+		t.Fatal("панель использования ид клиента вместо своего")
 	}
 }

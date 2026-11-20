@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 	"crypto/rand"
+	"context"
 )
 //сохраняем статус когда передаем ответ исходному w
 type statusWriter struct{
@@ -43,10 +44,15 @@ func requestLogging(logger *slog.Logger,next http.Handler) http.Handler {
 		//создаем собственный ид для каджого входящего запроса
 		requestID := rand.Text()
 		w.Header().Set("X-Request-ID",requestID) //передаем ид клиенту до отправки статуса и тела 
+		ctx := context.WithValue(r.Context(),requestIDKey{},requestID)//сохраняем ид в контексте запроса
+		r = r.WithContext(ctx)
+
+		
 
 		//передаем обработчику обертку для статуса
 		// если ничего не записано то ответ 200
 		writer := &statusWriter{ResponseWriter:w}
+		
 		next.ServeHTTP(writer, r)
 		status := writer.status
 		if status == 0 {status = http.StatusOK}
