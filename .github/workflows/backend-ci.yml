@@ -1,0 +1,38 @@
+name: Backend CI 
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: src/backend
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with: 
+          persist-credentials: false
+    
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: src/backend/go.mod
+          cache-dependency-path: src/backend/go.mod
+
+      - name: Static analysis
+        run: go vet ./...
+
+      - name: Tests
+        run: go test -v ./...
+
+      - name: Build
+        run: go build ./...
