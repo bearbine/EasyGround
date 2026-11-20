@@ -1,6 +1,6 @@
 package httptransport
 
-import(
+import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
