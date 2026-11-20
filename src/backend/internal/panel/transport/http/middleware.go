@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	"crypto/rand"
 )
 //сохраняем статус когда передаем ответ исходному w
 type statusWriter struct{
@@ -11,7 +12,7 @@ type statusWriter struct{
 	status int
 }
 //====================
-//
+//передаем статус клиенту и сохраняем для лога
 func (w *statusWriter) WriteHeader(code int){
 	//окончательный статус отправляем ТОЛЬКО ОДИН раз
 	if w.status != 0 {return}
@@ -23,7 +24,7 @@ func (w *statusWriter) WriteHeader(code int){
 	w.ResponseWriter.WriteHeader(code)
 	w.status = code
 }
-//
+//передаем тело ответа с учетом 200
 func(w *statusWriter) Write(body []byte) (int,error){
 	//запись тела без явного статуса будет 200
 	if w.status == 0 {w.WriteHeader(http.StatusOK)}
@@ -39,6 +40,10 @@ func requestLogging(logger *slog.Logger,next http.Handler) http.Handler {
 								// w-запись ответа  r-входящий запрос
 		start := time.Now()
 
+		//создаем собственный ид для каджого входящего запроса
+		requestID := rand.Text()
+		w.Header().Set("X-Request-ID",requestID) //передаем ид клиенту до отправки статуса и тела 
+
 		//передаем обработчику обертку для статуса
 		// если ничего не записано то ответ 200
 		writer := &statusWriter{ResponseWriter:w}
@@ -50,6 +55,7 @@ func requestLogging(logger *slog.Logger,next http.Handler) http.Handler {
 		"method", r.Method,
 		"path", r.URL.Path,
 		"duration",time.Since(start),
+		"request_id",requestID,
 		"status", status,
 		)
 	})
