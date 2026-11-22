@@ -182,3 +182,35 @@ func TestCreateHostInvalidJSON(t *testing.T){
 		})
 	}
 } 
+//проверка первышения размера тела запроса
+func TestCreateHostTooLarge(t *testing.T){
+	tests := []struct{
+		name string
+		body string
+	}{
+		{"large_json",`{"name":"`+strings.Repeat("a",1024)+`"}`},
+		{"large_trailing_space",`{"name":"test-host"}`+strings.Repeat(" ",1024)},
+	}
+	for _,tt := range tests{
+		t.Run(tt.name,func(t *testing.T){
+			calls := 0
+			store := hostStoreStub{
+				createFn:func(ctx context.Context,name string)(hosts.Host,error){
+					calls++
+					return hosts.Host{},nil
+				},
+			}
+						logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+			handler := NewHandler(logger,store)
+
+			//передаем тело запроса из текущего случая
+			r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(tt.body))
+			r.Header.Set("Content-Type","application/json")
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w,r)
+
+			if w.Code != http.StatusRequestEntityTooLarge{t.Fatalf("статус:получил %d, хотя %d",w.Code,http.StatusRequestEntityTooLarge)}
+			if calls != 0{t.Fatalf("вызовы Create:получил %d, хотя 0",calls)}
+		})
+	}
+}
