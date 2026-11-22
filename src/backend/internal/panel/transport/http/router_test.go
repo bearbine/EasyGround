@@ -6,14 +6,21 @@ import (
 	"testing"
 	"log/slog"
 	"io"
-)
+	"context"
 
+	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
+)
+//подменя хранилища
+type emptyHostStore struct{}
+//============================
+//тест маршрутов не требует постгре
+func (emptyHostStore) List(ctx context.Context)([]hosts.Host,error){return []hosts.Host{},nil}
 //TestRoutes проверяет маршруты через тот же обработчик
 //котоырй потом подключи к хттпсерверу
 func TestRoutes(t *testing.T){
 	//в тестах маршрутов отбрасываем логи что бы не засорять вывод
 	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
-	handler := NewHandler(logger)
+	handler := NewHandler(logger, emptyHostStore{})
 
 	//каждый елемент описывает отдельную проверку
 	tests := []struct {

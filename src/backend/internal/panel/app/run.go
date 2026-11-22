@@ -10,6 +10,7 @@ import (
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/config"
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/storage/postgres"
+	httptransport "github.com/bearbine/EasyGround/src/backend/internal/panel/transport/http"
 )
 //===============================
 //запускаем сервер. работаем до ошибки или отмены
@@ -20,7 +21,9 @@ func Run(ctx context.Context, addr string,cfg config.Config, logger *slog.Logger
 	defer pool.Close()
 	logger.Info("Покдлючение к PostgreSQL УСТАНОВЛЕНО")
 	
-	server := newServer(addr,logger)
+	hostStore := postgres.NewHostStore(pool) //хранилище юзает открытый общий пул
+	handler := httptransport.NewHandler(logger, hostStore) // передаем зависимости обработчикам и собираем сервер
+	server := newServer(addr,handler)
 
 	//канал дает нам результат
 	//в то время буфер дает отправить результат без простоя
