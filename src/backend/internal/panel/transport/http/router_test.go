@@ -21,6 +21,8 @@ func (emptyHostStore) Create(ctx context.Context,name string)(hosts.Host,error){
 func (emptyHostStore) Get(ctx context.Context,id string)(hosts.Host,error){panic("неожиданный вызов Get у emptyHostStore")}
 //переименование в этой подмене не предусмотрено
 func (emptyHostStore) Rename(ctx context.Context,id string,name string)(hosts.Host,error){panic("вызов Rename у emptyHostStore")}
+//удаление в этой подменне не предустромено
+func (emptyHostStore) Delete(ctx context.Context,id string)error{panic("неожиданный вызов Delete у emptyHostStore")}
 //проверяет маршруты через тот же обработчик
 //котоырй потом подключи к хттпсерверу
 func TestRoutes(t *testing.T){

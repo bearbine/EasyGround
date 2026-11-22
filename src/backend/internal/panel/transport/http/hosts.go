@@ -29,12 +29,15 @@ type HostGetter interface {Get(ctx context.Context,id string)(hosts.Host,error)}
 type HostRenamer interface {Rename(ctx context.Context,id string,name string)(hosts.Host,error)}
 //описываем данные запроса на переименование хоста
 type renameHostRequest struct {Name string `json:"name"`}
+//описываем возхможность удалить запись хоста
+type HostDeleter interface {Delete(ctx context.Context,id string)error}
 //ообьединяем возможности хранилища для маршрутизатора
 type HostStore interface{
 	HostLister
 	HostCreator
 	HostGetter
 	HostRenamer
+	HostDeleter
 }
 //=====================================
 // создаем обработчик с нужным хранилищем и логгером
@@ -229,6 +232,23 @@ func renameHost(store HostRenamer,logger *slog.Logger) http.HandlerFunc{
 		if _,err := w.Write(body); err != nil{logger.Error("отправка переименованного хоста","error",err,"request_id",RequestID(r.Context()))}
 
 	}
-	
-	
+}
+//удаляем хост по ID 
+func deleteHost(store HostDeleter,logger *slog.Logger) http.HandlerFunc{
+	return func(w http.ResponseWriter,r *http.Request){
+		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
+		defer cancel()
+
+		err := store.Delete(ctx,r.PathValue("id"))
+		if errors.Is(err,hosts.ErrInvalidID){http.Error(w,"некорректный ID хоста",http.StatusBadRequest);return}
+		if errors.Is(err,hosts.ErrNotFound){http.Error(w,"хост не найден",http.StatusNotFound); return}
+		if err != nil{
+			logger.Error("удаление хоста","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось удалить хост", http.StatusInternalServerError)
+			return
+		}
+
+		//запись удалена, тело ответа не нуждаетса
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

@@ -18,7 +18,8 @@ func NewHandler(logger *slog.Logger, store HostStore) http.Handler{
 	mux.HandleFunc("GET /api/hosts/{id}",getHost(store,logger))
 	//переименование хоста
 	mux.HandleFunc("PATCH /api/hosts/{id}",renameHost(store,logger))
-
+	//удаление записи хоста
+	mux.HandleFunc("DELETE /api/hosts/{id}",deleteHost(store,logger))
 	//оборачивание всех маршрутов
 	return requestLogging(logger,mux)
 }

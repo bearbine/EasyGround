@@ -22,6 +22,7 @@ type hostStoreStub struct{
 	createFn func(ctx context.Context,name string)(hosts.Host,error)
 	getFn func(ctx context.Context,id string)(hosts.Host,error)
 	renameFn func(ctx context.Context,id string,name string)(hosts.Host,error)
+	deleteFn func(ctx context.Context,id string)error
 }
 //======================
 //ретурним подготовленные данные без обращение к постре
@@ -40,6 +41,12 @@ func (s hostStoreStub) Get(ctx context.Context,id string)(hosts.Host,error){
 func (s hostStoreStub) Rename(ctx context.Context,id string,name string)(hosts.Host,error){
 	if s.renameFn == nil {panic("неожиданный вызов Rename у hostStoreStub")}
 	return s.renameFn(ctx,id,name)
+}
+//поведение удаления задается отдельно в каждом месте
+func (s hostStoreStub) Delete(ctx context.Context,id string)error{
+	if s.deleteFn == nil {panic("неожиданный вызов Delete у hostStoreStub")}
+	return s.deleteFn(ctx,id)
+	
 }
 //проверяем ответ API, когда список хостов пуст
 func TestListHostsEmpty(t *testing.T){
@@ -468,4 +475,29 @@ func TestRenameHostInvalidBody(t *testing.T){
 			if calls != 0{t.Fatalf("вызовы Rename:получил %d, хотя 0",calls)}
 		})
 	}
+}
+//проверяем удаление хоста через API
+func TestDeleteHost(t *testing.T){
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	calls := 0
+	var receivedID string
+	store := hostStoreStub{
+		deleteFn:func(ctx context.Context,id string)error{
+			calls++
+			receivedID = id
+			return nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//передаем ID хоста в адресе запроса
+	r := httptest.NewRequest(http.MethodDelete,"/api/hosts/"+id,nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusNoContent{t.Fatalf("статус:получил %d, хотя %d",w.Code,http.StatusNoContent)}
+	if calls != 1{t.Fatalf("вызовы Delete:получил %d, хотя 1",calls)}
+	if receivedID != id{t.Fatalf("ID:получил %q, хотя %q",receivedID,id)}
+	if w.Body.Len() != 0{t.Fatalf("тело ответа должно быть пустым, получил %q",w.Body.String())}
 }
