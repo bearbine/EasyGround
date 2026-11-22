@@ -38,3 +38,19 @@ func (s *HostStore) List(ctx context.Context)([]hosts.Host, error){
 	
 	return result,nil
 }
+//создаем хост после проверок
+func (s *HostStore) Create(ctx context.Context,name string)(hosts.Host,error){
+	name,err := hosts.NormalizeName(name)
+	if err != nil {return hosts.Host{},err}
+
+	//записываем название и получаем созданный хост
+	var host hosts.Host
+	err = s.pool.QueryRow(ctx, `
+		INSERT INTO public.hosts (name)
+		VALUES ($1)
+		RETURNING id::text, name, created_at
+	`, name).Scan(&host.ID,&host.Name,&host.CreatedAt)
+	if err != nil {return hosts.Host{},fmt.Errorf("создание хоста: %w",err)}
+
+	return host,nil
+}
