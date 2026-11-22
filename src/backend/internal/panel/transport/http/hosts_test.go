@@ -10,15 +10,19 @@ import (
 	"context"
 	"time"
 	"encoding/json"
+	"errors"
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
 )
 
 //храним список хостов, который нужно ретурнить в тесте
-type hostStoreStub struct{items []hosts.Host}
+type hostStoreStub struct{
+	items []hosts.Host
+	err error
+}
 //======================
 //ретурним подготовленные данные без обращение к постре
-func (s hostStoreStub) List(ctx context.Context)([]hosts.Host,error){return s.items,nil}
+func (s hostStoreStub) List(ctx context.Context)([]hosts.Host,error){return s.items,s.err}
 //проверяем ответ API, когда список хостов пуст
 func TestListHostsEmpty(t *testing.T){
 	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
@@ -73,4 +77,24 @@ func TestListHostsWithData(t *testing.T){
 	if got.ID != want.ID{t.Fatalf("ID:получил %q, хотя %q", got.ID, want.ID)}
 	if got.Name != want.Name{t.Fatalf("Name:получил %q, хотя %q", got.Name, want.Name)}
 	if !got.CreatedAt.Equal(want.CreatedAt){t.Fatalf("CreatedAt:получил %v, хотя %v", got.CreatedAt, want.CreatedAt)}
+}
+//проверка ответа апишки при ошибке в хранилище
+func TestListHostsStorageError(t *testing.T){
+	storeErr := errors.New("внутрення ошибка подключение к PostgreSQL")
+	store := hostStoreStub{err:storeErr,}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	r := httptest.NewRequest(http.MethodGet,"/api/hosts",nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	//ошибка хранилища должна быть 500
+	if w.Code != http.StatusInternalServerError{
+		t.Fatalf("статус: получил %d, хотя %d", w.Code,http.StatusInternalServerError)
+	}
+	//внутренности ошибки не должны быть у клиента. важно!
+	if strings.Contains(w.Body.String(),storeErr.Error()){t.Fatalf("ответ содержит внутренююю ошибку: %q", w.Body.String())}
+
+	if got := strings.TrimSpace(w.Body.String()); got != "не удалось получить хосты"{t.Fatalf("тело ответа: получил %q, ожидал %q",got,"не удалось получить хосты")}
 }
