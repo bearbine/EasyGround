@@ -214,3 +214,24 @@ func TestCreateHostTooLarge(t *testing.T){
 		})
 	}
 }
+//проверяем ответ API при неправильном названии хоста
+func TestCreateHostInvalidName(t *testing.T){
+	calls := 0
+	store := hostStoreStub{
+		createFn:func(ctx context.Context,name string)(hosts.Host,error){
+			calls++
+			return hosts.Host{},hosts.ErrInvalidName
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//передаем пустое название в теле пост запроса
+	r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(`{"name":""}`))
+	r.Header.Set("Content-Type","application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusBadRequest{t.Fatalf("статус: получил %d, хотя %d",w.Code,http.StatusBadRequest)}
+	if calls != 1{t.Fatalf("вызовы Create:получил %d, хотя 1",calls)}
+}
