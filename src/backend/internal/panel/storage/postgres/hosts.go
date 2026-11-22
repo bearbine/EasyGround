@@ -3,7 +3,9 @@ package postgres
 import(
 	"context"
 	"fmt"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
 )
@@ -51,6 +53,24 @@ func (s *HostStore) Create(ctx context.Context,name string)(hosts.Host,error){
 		RETURNING id::text, name, created_at
 	`, name).Scan(&host.ID,&host.Name,&host.CreatedAt)
 	if err != nil {return hosts.Host{},fmt.Errorf("создание хоста: %w",err)}
+
+	return host,nil
+}
+//получаем один хост по проверенному ид
+func (s *HostStore) Get(ctx context.Context,id string)(hosts.Host,error){
+	id,err := hosts.NormalizeID(id)
+	if err != nil {return hosts.Host{},err}
+
+	var host hosts.Host
+	err = s.pool.QueryRow(ctx,`
+		SELECT id::text, name, created_at
+		FROM public.hosts
+		WHERE id = $1::uuid
+	`,id).Scan(&host.ID,&host.Name,&host.CreatedAt)
+
+	//отсутствие записи отделяем от ошибки базы
+	if errors.Is(err,pgx.ErrNoRows){return hosts.Host{},hosts.ErrNotFound}
+	if err != nil {return hosts.Host{},fmt.Errorf("получение хоста: %w",err)}
 
 	return host,nil
 }
