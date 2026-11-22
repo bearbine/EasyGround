@@ -307,3 +307,40 @@ func TestGetHost(t *testing.T){
 	if response.Name != want.Name{t.Fatalf("Name:получил %q, хотя %q",response.Name,want.Name)}
 	if !response.CreatedAt.Equal(want.CreatedAt){t.Fatalf("CreatedAt:получил %v, хотя %v",response.CreatedAt,want.CreatedAt)}
 }
+//проверяем ответы API при ошибках получения хоста
+func TestGetHostErrors(t *testing.T){
+	tests := []struct{
+		name string
+		id string
+		err error
+		status int
+		body string
+	}{
+		{"invalid_id","not-a-uuid",hosts.ErrInvalidID,http.StatusBadRequest,"некорректный ID хоста"},
+		{"not_found","550e8400-e29b-41d4-a716-446655440000",hosts.ErrNotFound,http.StatusNotFound,"хост не найден"},
+		{"storage_error","550e8400-e29b-41d4-a716-446655440000",errors.New("внутренняя ошибка PostgreSQL"),http.StatusInternalServerError,"не удалось получить хост"},
+	}
+
+	for _,tt := range tests{
+		t.Run(tt.name,func(t *testing.T){
+			calls := 0
+			store := hostStoreStub{
+				getFn:func(ctx context.Context,id string)(hosts.Host,error){
+					calls++
+					return hosts.Host{},tt.err
+				},
+			}
+			logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+			handler := NewHandler(logger,store)
+
+			//передаем ID из текущего случая
+			r := httptest.NewRequest(http.MethodGet,"/api/hosts/"+tt.id,nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w,r)
+
+			if w.Code != tt.status{t.Fatalf("статус:получил %d, хотя %d",w.Code,tt.status)}
+			if calls != 1{t.Fatalf("вызовы Get:получил %d, хотя 1",calls)}
+			if got := strings.TrimSpace(w.Body.String()); got != tt.body{t.Fatalf("тело ответа:получил %q, хотя %q",got,tt.body)}
+		})
+	}
+}
