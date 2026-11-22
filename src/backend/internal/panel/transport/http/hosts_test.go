@@ -501,3 +501,39 @@ func TestDeleteHost(t *testing.T){
 	if receivedID != id{t.Fatalf("ID:получил %q, хотя %q",receivedID,id)}
 	if w.Body.Len() != 0{t.Fatalf("тело ответа должно быть пустым, получил %q",w.Body.String())}
 }
+//проверяем ответы API при ошибках удаления хоста
+func TestDeleteHostErrors(t *testing.T){
+	tests := []struct{
+		name string
+		err error
+		status int
+		body string
+	}{
+		{"invalid_id",hosts.ErrInvalidID,http.StatusBadRequest,"некорректный ID хоста"},
+		{"not_found",hosts.ErrNotFound,http.StatusNotFound,"хост не найден"},
+		{"storage_error",errors.New("внутренняя ошибка PostgreSQL"),http.StatusInternalServerError,"не удалось удалить хост"},
+	}
+
+	for _,tt := range tests{
+		t.Run(tt.name,func(t *testing.T){
+			calls := 0
+			store := hostStoreStub{
+				deleteFn:func(ctx context.Context,id string)error{
+					calls++
+					return tt.err
+				},
+			}
+			logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+			handler := NewHandler(logger,store)
+
+			//хранилище возвращает ошибку из текущего случая
+			r := httptest.NewRequest(http.MethodDelete,"/api/hosts/550e8400-e29b-41d4-a716-446655440000",nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w,r)
+
+			if w.Code != tt.status{t.Fatalf("статус:получил %d, хотя %d",w.Code,tt.status)}
+			if calls != 1{t.Fatalf("вызовы Delete:получил %d, хотя 1",calls)}
+			if got := strings.TrimSpace(w.Body.String()); got != tt.body{t.Fatalf("тело ответа:получил %q, хотя %q",got,tt.body)}
+		})
+	}
+}
