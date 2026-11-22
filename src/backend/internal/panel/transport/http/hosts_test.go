@@ -20,6 +20,7 @@ type hostStoreStub struct{
 	items []hosts.Host
 	err error
 	createFn func(ctx context.Context,name string)(hosts.Host,error)
+	getFn func(ctx context.Context,id string)(hosts.Host,error)
 }
 //======================
 //ретурним подготовленные данные без обращение к постре
@@ -28,6 +29,11 @@ func (s hostStoreStub) List(ctx context.Context)([]hosts.Host,error){return s.it
 func (s hostStoreStub) Create(ctx context.Context,name string)(hosts.Host,error){
 	if s.createFn == nil {panic("неожиданный вызов Create у hostStoreStub")}
 	return s.createFn(ctx,name)
+}
+//поведение получения задается отдельно в каждом месте
+func (s hostStoreStub) Get(ctx context.Context,id string)(hosts.Host,error){
+	if s.getFn == nil {panic("неожиданный вызов Get у hostStoreStub")}
+	return s.getFn(ctx,id)
 }
 //проверяем ответ API, когда список хостов пуст
 func TestListHostsEmpty(t *testing.T){
@@ -260,4 +266,44 @@ func TestCreateHostStorageError(t *testing.T){
 	//внутренние подробности не должны попадать клиенту
 	if strings.Contains(w.Body.String(),storeErr.Error()){t.Fatalf("ответ содержит внутреннюю ошибку: %q",w.Body.String())}
 	if got := strings.TrimSpace(w.Body.String()); got != "не удалось создать хост"{t.Fatalf("тело ответа:получил %q, хотя %q",got,"не удалось создать хост")}
+}
+//проверяем получение одного хоста через API
+func TestGetHost(t *testing.T){
+	want := hosts.Host{
+		ID:"550e8400-e29b-41d4-a716-446655440000",
+		Name:"test-host",
+		CreatedAt:time.Date(2026,time.November,22,12,0,0,0,time.UTC),
+	}
+	calls := 0
+	var receivedID string
+	store := hostStoreStub{
+		getFn:func(ctx context.Context,id string)(hosts.Host,error){
+			calls++
+			receivedID = id
+			return want,nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//передаем ID хоста в адресе запроса
+	r := httptest.NewRequest(http.MethodGet,"/api/hosts/"+want.ID,nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusOK{t.Fatalf("статус:получил %d, хотя %d",w.Code,http.StatusOK)}
+	if calls != 1{t.Fatalf("вызовы Get:получил %d, хотя 1",calls)}
+	if receivedID != want.ID{t.Fatalf("ID:получил %q, хотя %q",receivedID,want.ID)}
+	if got := w.Header().Get("Content-Type"); got != "application/json"{t.Fatalf("Content-Type:получил %q, хотя application/json",got)}
+
+	//разбираем хост из ответа
+	var response struct{
+		ID string `json:"id"`
+		Name string `json:"name"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(),&response); err != nil{t.Fatalf("не удалось разобрать JSON: %v",err)}
+	if response.ID != want.ID{t.Fatalf("ID:получил %q, хотя %q",response.ID,want.ID)}
+	if response.Name != want.Name{t.Fatalf("Name:получил %q, хотя %q",response.Name,want.Name)}
+	if !response.CreatedAt.Equal(want.CreatedAt){t.Fatalf("CreatedAt:получил %v, хотя %v",response.CreatedAt,want.CreatedAt)}
 }

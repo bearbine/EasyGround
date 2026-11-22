@@ -23,10 +23,13 @@ type hostResponse struct{
 }
 //описываем возможность создать хост
 type HostCreator interface {Create(ctx context.Context,name string)(hosts.Host,error)}
+//описываем возможность получить один хост
+type HostGetter interface {Get(ctx context.Context,id string)(hosts.Host,error)}
 //ообьединяем возможности хранилища для маршрутизатора
 type HostStore interface{
 	HostLister
 	HostCreator
+	HostGetter
 }
 //=====================================
 // создаем обработчик с нужным хранилищем и логгером
@@ -130,5 +133,38 @@ func createHost(store HostCreator,logger *slog.Logger) http.HandlerFunc{
 		w.Header().Set("Content-Type","application/json")
 		w.WriteHeader(http.StatusCreated)
 		if _,err := w.Write(body); err != nil{logger.Error("отправка созданного хоста","error",err,"request_id",RequestID(r.Context()))}
+	}
+}
+//получаем один хост по ид из адреса запроса
+func getHost(store HostGetter,logger *slog.Logger) http.HandlerFunc{
+	return func(w http.ResponseWriter,r *http.Request){
+		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
+		defer cancel()
+
+		host,err := store.Get(ctx,r.PathValue("id"))
+		if errors.Is(err,hosts.ErrInvalidID){http.Error(w,"некорректный ID хоста",http.StatusBadRequest);return}
+		if errors.Is(err,hosts.ErrNotFound){http.Error(w,"хост не найден",http.StatusNotFound);return}
+		if err != nil{
+			logger.Error("получение хоста","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось получить хост",http.StatusInternalServerError)
+			return
+		}
+
+		//ретурним только паблик поля хоста
+		response := hostResponse{
+			ID:host.ID,
+			Name:host.Name,
+			CreatedAt:host.CreatedAt,
+		}
+		body,err := json.Marshal(response)
+		if err != nil{
+			logger.Error("подготовка ответа с хостом","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось подготовить ответ",http.StatusInternalServerError)
+			return
+		}
+
+		//ретурним хост в json
+		w.Header().Set("Content-Type","application/json")
+		if _,err := w.Write(body); err != nil{logger.Error("отправка хоста","error",err,"request_id",RequestID(r.Context()))}
 	}
 }

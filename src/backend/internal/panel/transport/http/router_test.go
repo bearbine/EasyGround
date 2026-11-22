@@ -17,7 +17,9 @@ type emptyHostStore struct{}
 func (emptyHostStore) List(ctx context.Context)([]hosts.Host,error){return []hosts.Host{},nil}
 //эта подмена исполдьзуется только для проверки чтения
 func (emptyHostStore) Create(ctx context.Context,name string)(hosts.Host,error){panic("неожиданный вызов Create у emptyHostStore")}
-//TestRoutes проверяет маршруты через тот же обработчик
+//получение одного хоста в этой подмене не предусмотрено
+func (emptyHostStore) Get(ctx context.Context,id string)(hosts.Host,error){panic("неожиданный вызов Get у emptyHostStore")}
+//проверяет маршруты через тот же обработчик
 //котоырй потом подключи к хттпсерверу
 func TestRoutes(t *testing.T){
 	//в тестах маршрутов отбрасываем логи что бы не засорять вывод

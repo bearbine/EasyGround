@@ -14,6 +14,8 @@ func NewHandler(logger *slog.Logger, store HostStore) http.Handler{
 	mux.HandleFunc("GET /api/hosts", listHosts(store,logger))
 	//создание хоста
 	mux.HandleFunc("POST /api/hosts",createHost(store,logger))
+	//получение хоста
+	mux.HandleFunc("GET /api/hosts/{id}",getHost(store,logger))
 
 	//оборачивание всех маршрутов
 	return requestLogging(logger,mux)
