@@ -149,3 +149,24 @@ func TestCreateHost(t *testing.T){
 	if response.Name != want.Name{t.Fatalf("Name:получил %q, хотя %q",response.Name,want.Name)}
 	if !response.CreatedAt.Equal(want.CreatedAt){t.Fatalf("CreatedAt:получил %v, хотя %v",response.CreatedAt,want.CreatedAt)}
 }
+//проверяем что неправильный JSON не доходит до хранилища
+func TestCreateHostInvalidJSON(t *testing.T){
+	calls := 0
+	store := hostStoreStub{
+		createFn:func(ctx context.Context,name string)(hosts.Host,error){
+			calls++
+			return hosts.Host{},nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//JSON спецом оборван после двоеточия
+	r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(`{"name":}`))
+	r.Header.Set("Content-Type","application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusBadRequest{t.Fatalf("статус: получил %d, хотя %d", w.Code,http.StatusBadRequest)}
+	if calls != 0{t.Fatalf("вызовы Create:получил %d, хотя 0",calls)}
+} 
