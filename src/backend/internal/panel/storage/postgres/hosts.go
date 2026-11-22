@@ -74,3 +74,21 @@ func (s *HostStore) Get(ctx context.Context,id string)(hosts.Host,error){
 
 	return host,nil
 }
+//меняем название хоста после проверки ид и названия
+func (s *HostStore) Rename(ctx context.Context,id string,name string)(hosts.Host,error){
+	id,err := hosts.NormalizeID(id)
+	if err != nil {return hosts.Host{},err}
+	name,err = hosts.NormalizeName(name)
+	if err != nil {return hosts.Host{},err}
+
+	var host hosts.Host
+	err = s.pool.QueryRow(ctx,`
+		UPDATE public.hosts
+		SET name = $2
+		WHERE id = $1::uuid
+		RETURNING id::text, name, created_at
+	`,id,name).Scan(&host.ID,&host.Name,&host.CreatedAt)
+	if errors.Is(err,pgx.ErrNoRows){return hosts.Host{},hosts.ErrNotFound}
+	if err != nil {return hosts.Host{},fmt.Errorf("переименование хоста: %w",err)}
+	return host,nil
+}
