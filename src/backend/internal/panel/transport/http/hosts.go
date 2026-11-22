@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"errors"
+	"io"
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
 )
@@ -18,6 +20,13 @@ type hostResponse struct{
 	ID string `json:"id"`
 	Name string `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
+}
+//описываем возможность создать хост
+type HostCreator interface {Create(ctx context.Context,name string)(hosts.Host,error)}
+//ообьединяем возможности хранилища для маршрутизатора
+type HostStore interface{
+	HostLister
+	HostCreator
 }
 //=====================================
 // создаем обработчик с нужным хранилищем и логгером
@@ -54,5 +63,72 @@ func listHosts(store HostLister, logger *slog.Logger) http.HandlerFunc{
 
 		w.Header().Set("Content-Type","application/json")
 		if _,err := w.Write(body); err != nil {logger.Error("отправка списка хостов","error",err,"request_id",RequestID(r.Context()),)}
+	}
+}
+//создаем обработчик запроса на добавление хоста
+func createHost(store HostCreator,logger *slog.Logger) http.HandlerFunc{
+	return func(w http.ResponseWriter, r *http.Request){
+		r.Body = http.MaxBytesReader(w,r.Body,1024) //ограничение тело одним КБ
+	
+
+		//разбираеим джсон и запрещаем анкнойвн поля
+		var request createHostRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		if err := decoder.Decode(&request); err != nil{
+			var sizeErr *http.MaxBytesError
+			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge) 
+			return
+		}
+
+		http.Error(w,"некоррект JSON",http.StatusBadRequest)
+		return
+		}
+
+		//после первого JSON допускаем только конец тела запроса
+		var extra any
+		if err := decoder.Decode(&extra);
+		!errors.Is(err,io.EOF){
+			var sizeErr *http.MaxBytesError
+			if errors.As(err,&sizeErr){
+				http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w,"запрос должен содержать один JSON",http.StatusBadRequest)
+			return
+		}
+
+		//ограничение время создания хоста
+		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
+		defer cancel()
+
+		host,err := store.Create(ctx,request.Name)
+		if errors.Is(err,hosts.ErrInvalidName){
+			http.Error(w,"некоррект название хоста",http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			logger.Error("создание хоста","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось создать хост",http.StatusInternalServerError)
+			return
+		}
+
+		//ретурним только паблик поля хоста
+		response := hostResponse{
+			ID:host.ID,
+			Name:host.Name,
+			CreatedAt:host.CreatedAt,
+		}
+		body,err := json.Marshal(response)
+		if err != nil{
+			logger.Error("подготовка ответа с созданным хостом","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось подготовить ответ",http.StatusInternalServerError)
+			return
+		}
+		//говорим что хост создан и ретурним json
+		w.Header().Set("Content-Type","application/json")
+		w.WriteHeader(http.StatusCreated)
+		if _,err := w.Write(body); err != nil{logger.Error("отправка созданного хоста","error",err,"request_id",RequestID(r.Context()))}
 	}
 }
