@@ -235,3 +235,29 @@ func TestCreateHostInvalidName(t *testing.T){
 	if w.Code != http.StatusBadRequest{t.Fatalf("статус: получил %d, хотя %d",w.Code,http.StatusBadRequest)}
 	if calls != 1{t.Fatalf("вызовы Create:получил %d, хотя 1",calls)}
 }
+//проверяем ответ API при ошибке создания в хранилище
+func TestCreateHostStorageError(t *testing.T){
+	storeErr := errors.New("внутренняя ошибка подключения к PostgreSQL")
+	calls := 0
+	store := hostStoreStub{
+		createFn:func(ctx context.Context,name string)(hosts.Host,error){
+			calls++
+			return hosts.Host{},storeErr
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//передаем название в теле пост запроса
+	r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(`{"name":"test-host"}`))
+	r.Header.Set("Content-Type","application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusInternalServerError{t.Fatalf("статус: получил %d, хотя %d",w.Code,http.StatusInternalServerError)}
+	if calls != 1{t.Fatalf("вызовы Create:получил %d, хотя 1",calls)}
+
+	//внутренние подробности не должны попадать клиенту
+	if strings.Contains(w.Body.String(),storeErr.Error()){t.Fatalf("ответ содержит внутреннюю ошибку: %q",w.Body.String())}
+	if got := strings.TrimSpace(w.Body.String()); got != "не удалось создать хост"{t.Fatalf("тело ответа:получил %q, хотя %q",got,"не удалось создать хост")}
+}
