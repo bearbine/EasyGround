@@ -432,3 +432,40 @@ func TestRenameHostErrors(t *testing.T){
 		})
 	}
 }
+//проверяем что неправильное тело запроса не доходит до хранилища
+func TestRenameHostInvalidBody(t *testing.T){
+	tests := []struct{
+		name string
+		body string
+		status int
+	}{
+		{"broken_json",`{"name":}`,http.StatusBadRequest},
+		{"unknown_field",`{"name":"renamed-host","id":"123"}`,http.StatusBadRequest},
+		{"two_values",`{"name":"renamed-host"} {"name":"other-host"}`,http.StatusBadRequest},
+		{"large_json",`{"name":"`+strings.Repeat("a",1024)+`"}`,http.StatusRequestEntityTooLarge},
+		{"large_trailing_space",`{"name":"renamed-host"}`+strings.Repeat(" ",1024),http.StatusRequestEntityTooLarge},
+	}
+
+	for _,tt := range tests{
+		t.Run(tt.name,func(t *testing.T){
+			calls := 0
+			store := hostStoreStub{
+				renameFn:func(ctx context.Context,id string,name string)(hosts.Host,error){
+					calls++
+					return hosts.Host{},nil
+				},
+			}
+			logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+			handler := NewHandler(logger,store)
+
+			//передаем тело запроса из текущего случая
+			r := httptest.NewRequest(http.MethodPatch,"/api/hosts/550e8400-e29b-41d4-a716-446655440000",strings.NewReader(tt.body))
+			r.Header.Set("Content-Type","application/json")
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w,r)
+
+			if w.Code != tt.status{t.Fatalf("статус:получил %d, хотя %d",w.Code,tt.status)}
+			if calls != 0{t.Fatalf("вызовы Rename:получил %d, хотя 0",calls)}
+		})
+	}
+}
