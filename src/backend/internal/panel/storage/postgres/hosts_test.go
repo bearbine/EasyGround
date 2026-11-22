@@ -225,3 +225,51 @@ func TestHostStoreRename(t *testing.T){
 		if !errors.Is(err,hosts.ErrNotFound){t.Fatalf("ошибка:получил %v, хотя %v",err,hosts.ErrNotFound)}
 	})
 }
+//проверяем удаление хоста из PostgreSQL
+func TestHostStoreDelete(t *testing.T){
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == ""{t.Skip("нету TEST_DATABASE_URL")}
+
+	ctx,cancel := context.WithTimeout(context.Background(),10*time.Second)
+	defer cancel()
+
+	pool,err := Open(ctx,databaseURL)
+	if err != nil {t.Fatalf("подключение к тестовой базе:%v",err)}
+	defer pool.Close()
+
+	//проверка ли мы реально в тестовой базе
+	//я знаю что параноидально, но бывало что я проебывался на этом моменте и подключался к основной
+	var databaseName string
+	if err := pool.QueryRow(ctx, "SELECT current_database()").Scan(&databaseName); err != nil {t.Fatalf("проверка нейма базы: %v", err)}
+	if databaseName != "easyground_test"{t.Fatalf("для теста нужна easyground_test, а у нас %q",databaseName)}
+
+	//создаем хост
+	store := NewHostStore(pool)
+	host,err := store.Create(ctx,"integration-test-host")
+	if err != nil {t.Fatalf("создание тестового хоста: %v",err)}
+
+	//удаляем только запись созданную ТОЛЬКО ТУТ
+	defer func(){
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		if _,err := pool.Exec(cleanupCtx, "DELETE FROM public.hosts WHERE id = $1::uuid", host.ID); err != nil{t.Errorf("удаление тестового хоста:%v",err)}
+	}()
+
+	t.Run("invalid_id",func(t *testing.T){
+		err := store.Delete(ctx,"not-a-uuid")
+		if !errors.Is(err,hosts.ErrInvalidID){t.Fatalf("ошибка:получил %v, хотя %v",err,hosts.ErrInvalidID)}
+	})
+
+	//после неправильного запроса хост должен остаться
+	if _,err := store.Get(ctx,host.ID); err != nil{t.Fatalf("получение хоста: %v",err)}
+
+	//удаляем хост и проверяем что записи больше нет
+	if err := store.Delete(ctx,host.ID); err != nil{t.Fatalf("удаление хоста: %v",err)}
+	_,err = store.Get(ctx,host.ID)
+	if !errors.Is(err,hosts.ErrNotFound){t.Fatalf("ошибка:получил %v, хотя %v",err,hosts.ErrNotFound)}
+
+	t.Run("not_found",func(t *testing.T){
+		err := store.Delete(ctx,host.ID)
+		if !errors.Is(err,hosts.ErrNotFound){t.Fatalf("ошибка:получил %v, хотя %v",err,hosts.ErrNotFound)}
+	})
+}

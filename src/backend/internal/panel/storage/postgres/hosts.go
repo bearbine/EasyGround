@@ -92,3 +92,17 @@ func (s *HostStore) Rename(ctx context.Context,id string,name string)(hosts.Host
 	if err != nil {return hosts.Host{},fmt.Errorf("переименование хоста: %w",err)}
 	return host,nil
 }
+//удаляем запись хоста по проверенному ид
+func (s *HostStore) Delete(ctx context.Context,id string)error{
+	id,err := hosts.NormalizeID(id)
+	if err != nil {return err}
+
+	result,err := s.pool.Exec(ctx,`
+		DELETE FROM public.hosts
+		WHERE id = $1::uuid
+	`,id)
+	if err != nil {return fmt.Errorf("удаление хоста: %w",err)}
+	if result.RowsAffected() == 0{return hosts.ErrNotFound}
+	
+	return nil
+}
