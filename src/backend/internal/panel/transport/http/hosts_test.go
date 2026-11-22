@@ -151,22 +151,34 @@ func TestCreateHost(t *testing.T){
 }
 //проверяем что неправильный JSON не доходит до хранилища
 func TestCreateHostInvalidJSON(t *testing.T){
-	calls := 0
-	store := hostStoreStub{
-		createFn:func(ctx context.Context,name string)(hosts.Host,error){
-			calls++
-			return hosts.Host{},nil
-		},
+	tests := []struct{
+		name string
+		body string
+	}{
+		{"broken_json",`{"name":}`},
+		{"unknown_field",`{"name":"test-host","id":"123"}`},
+		{"two_values",`{"name":"test-host"} {"name":"other-host"}`},
 	}
-	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
-	handler := NewHandler(logger,store)
+	for _,tt := range tests{
+			t.Run(tt.name,func(t *testing.T){
+			calls := 0
+			store := hostStoreStub{
+				createFn:func(ctx context.Context,name string)(hosts.Host,error){
+					calls++
+					return hosts.Host{},nil
+				},
+			}
+			logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+			handler := NewHandler(logger,store)
 
-	//JSON спецом оборван после двоеточия
-	r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(`{"name":}`))
-	r.Header.Set("Content-Type","application/json")
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w,r)
+			//передаем тело запроса из текущего случая 
+			r := httptest.NewRequest(http.MethodPost,"/api/hosts", strings.NewReader(tt.body))
+			r.Header.Set("Content-Type","application/json")
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w,r)
 
-	if w.Code != http.StatusBadRequest{t.Fatalf("статус: получил %d, хотя %d", w.Code,http.StatusBadRequest)}
-	if calls != 0{t.Fatalf("вызовы Create:получил %d, хотя 0",calls)}
+			if w.Code != http.StatusBadRequest{t.Fatalf("статус: получил %d, хотя %d", w.Code,http.StatusBadRequest)}
+			if calls != 0{t.Fatalf("вызовы Create:получил %d, хотя 0",calls)}
+		})
+	}
 } 
