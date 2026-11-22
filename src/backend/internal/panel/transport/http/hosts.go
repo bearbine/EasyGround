@@ -25,11 +25,16 @@ type hostResponse struct{
 type HostCreator interface {Create(ctx context.Context,name string)(hosts.Host,error)}
 //описываем возможность получить один хост
 type HostGetter interface {Get(ctx context.Context,id string)(hosts.Host,error)}
+//описываем возможность переименовать хост
+type HostRenamer interface {Rename(ctx context.Context,id string,name string)(hosts.Host,error)}
+//описываем данные запроса на переименование хоста
+type renameHostRequest struct {Name string `json:"name"`}
 //ообьединяем возможности хранилища для маршрутизатора
 type HostStore interface{
 	HostLister
 	HostCreator
 	HostGetter
+	HostRenamer
 }
 //=====================================
 // создаем обработчик с нужным хранилищем и логгером
@@ -167,4 +172,63 @@ func getHost(store HostGetter,logger *slog.Logger) http.HandlerFunc{
 		w.Header().Set("Content-Type","application/json")
 		if _,err := w.Write(body); err != nil{logger.Error("отправка хоста","error",err,"request_id",RequestID(r.Context()))}
 	}
+}
+//переименовываем хост по ИД из адреса запроса
+func renameHost(store HostRenamer,logger *slog.Logger) http.HandlerFunc{
+	return func(w http.ResponseWriter,r *http.Request){
+		r.Body = http.MaxBytesReader(w,r.Body,1024)
+
+		//разбираем json и запрещаем неизвестные поля
+		var request renameHostRequest
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		if err := decoder.Decode(&request); err != nil{
+			var sizeErr *http.MaxBytesError
+			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge);return}
+			http.Error(w,"некоррект JSON",http.StatusBadRequest)
+			return
+		}
+		//после первого джсона допускаем только конец тела запроса
+		var extra any
+		if err := decoder.Decode(&extra); !errors.Is(err,io.EOF){
+			var sizeErr *http.MaxBytesError
+			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge);return}
+			http.Error(w,"запрос должен содержать один JSON",http.StatusBadRequest)
+			return
+		}
+
+		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
+		defer cancel()
+
+		host,err := store.Rename(ctx,r.PathValue("id"),request.Name)
+		if errors.Is(err,hosts.ErrInvalidID){http.Error(w,"некорректный ID хоста",http.StatusBadRequest); return}
+		if errors.Is(err,hosts.ErrInvalidName){http.Error(w,"некорректное название хоста",http.StatusBadRequest);return}
+		if errors.Is(err,hosts.ErrNotFound){http.Error(w,"хост не найден",http.StatusNotFound);return}
+		if err != nil{
+			logger.Error("переименование хоста","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось переименовать хост",http.StatusInternalServerError)
+			return
+		}
+
+		//ретурним только паблик поля хоста
+		response := hostResponse{
+			ID:host.ID,
+			Name:host.Name,
+			CreatedAt:host.CreatedAt,
+		}
+		body,err := json.Marshal(response)
+		if err != nil{
+			logger.Error("подготовка ответа с переименованным хостом","error",err,"request_id",RequestID(r.Context()))
+			http.Error(w,"не удалось подготовить ответ",http.StatusInternalServerError)
+			return
+		}
+
+		//ретурним переименованный хост в json
+		w.Header().Set("Content-Type","application/json")
+		if _,err := w.Write(body); err != nil{logger.Error("отправка переименованного хоста","error",err,"request_id",RequestID(r.Context()))}
+
+	}
+	
+	
 }

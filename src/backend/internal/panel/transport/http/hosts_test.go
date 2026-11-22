@@ -21,6 +21,7 @@ type hostStoreStub struct{
 	err error
 	createFn func(ctx context.Context,name string)(hosts.Host,error)
 	getFn func(ctx context.Context,id string)(hosts.Host,error)
+	renameFn func(ctx context.Context,id string,name string)(hosts.Host,error)
 }
 //======================
 //ретурним подготовленные данные без обращение к постре
@@ -34,6 +35,11 @@ func (s hostStoreStub) Create(ctx context.Context,name string)(hosts.Host,error)
 func (s hostStoreStub) Get(ctx context.Context,id string)(hosts.Host,error){
 	if s.getFn == nil {panic("неожиданный вызов Get у hostStoreStub")}
 	return s.getFn(ctx,id)
+}
+//поведение переименования задается отдельно в каждом месте
+func (s hostStoreStub) Rename(ctx context.Context,id string,name string)(hosts.Host,error){
+	if s.renameFn == nil {panic("неожиданный вызов Rename у hostStoreStub")}
+	return s.renameFn(ctx,id,name)
 }
 //проверяем ответ API, когда список хостов пуст
 func TestListHostsEmpty(t *testing.T){
@@ -343,4 +349,48 @@ func TestGetHostErrors(t *testing.T){
 			if got := strings.TrimSpace(w.Body.String()); got != tt.body{t.Fatalf("тело ответа:получил %q, хотя %q",got,tt.body)}
 		})
 	}
+}
+//проверяем переименование хоста через API
+func TestRenameHost(t *testing.T){
+	want := hosts.Host{
+		ID:"550e8400-e29b-41d4-a716-446655440000",
+		Name:"renamed-host",
+		CreatedAt:time.Date(2026,time.November,22,12,0,0,0,time.UTC),
+	}
+	calls := 0
+	var receivedID string
+	var receivedName string
+	store := hostStoreStub{
+		renameFn:func(ctx context.Context,id string,name string)(hosts.Host,error){
+			calls++
+			receivedID = id
+			receivedName = name
+			return want,nil
+		},
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard,nil))
+	handler := NewHandler(logger,store)
+
+	//передаем ID в адресе и новое название в теле запроса
+	r := httptest.NewRequest(http.MethodPatch,"/api/hosts/"+want.ID,strings.NewReader(`{"name":"renamed-host"}`))
+	r.Header.Set("Content-Type","application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w,r)
+
+	if w.Code != http.StatusOK{t.Fatalf("статус:получил %d, хотя %d",w.Code,http.StatusOK)}
+	if calls != 1{t.Fatalf("вызовы Rename:получил %d, хотя 1",calls)}
+	if receivedID != want.ID{t.Fatalf("ID:получил %q, хотя %q",receivedID,want.ID)}
+	if receivedName != want.Name{t.Fatalf("Name:получил %q, хотя %q",receivedName,want.Name)}
+	if got := w.Header().Get("Content-Type"); got != "application/json"{t.Fatalf("Content-Type:получил %q, хотя application/json",got)}
+
+	//разбираем переименованный хост из ответа
+	var response struct{
+		ID string `json:"id"`
+		Name string `json:"name"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(),&response); err != nil{t.Fatalf("не удалось разобрать JSON: %v",err)}
+	if response.ID != want.ID{t.Fatalf("ID:получил %q, хотя %q",response.ID,want.ID)}
+	if response.Name != want.Name{t.Fatalf("Name:получил %q, хотя %q",response.Name,want.Name)}
+	if !response.CreatedAt.Equal(want.CreatedAt){t.Fatalf("CreatedAt:получил %v, хотя %v",response.CreatedAt,want.CreatedAt)}
 }
