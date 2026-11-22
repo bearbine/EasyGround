@@ -9,6 +9,8 @@ import (
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
 )
+//описываем данные запроса на создание хоста
+type createHostRequest struct {Name string `json:"name"`}
 //описываем возможность получить список хостов
 type HostLister interface {List(ctx context.Context)([]hosts.Host, error)}
 //определяем поля хоста в HTTPответе
