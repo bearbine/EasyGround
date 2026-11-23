@@ -14,6 +14,10 @@ func newServer(addr string, handler http.Handler) *http.Server{
 
 		//макс получение
 		ReadHeaderTimeout:5*time.Second,
+		//макс время чтения запроса вместе с телом
+		ReadTimeout:10*time.Second,
+		//срок записи ответа после получения заголовков запроса
+		WriteTimeout:15*time.Second,
 		//макс простой
 		IdleTimeout:60*time.Second,
 
