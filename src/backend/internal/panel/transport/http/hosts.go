@@ -42,11 +42,17 @@ type HostStore interface{
 // создаем обработчик с нужным хранилищем и логгером
 func listHosts(store HostLister, logger *slog.Logger) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request){
+		//проверяем параметры страницы до обращения к хранилищу
+		limit,offset,err := parsePagination(r.URL.RawQuery)
+		if err != nil{
+			http.Error(w,"некорректные параметры страницы",http.StatusBadRequest)
+			return
+		}
 		//ограничение ожидание базы в секах
 		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)//тут поставил 3 сек пока что
 		defer cancel()
 
-		items,err := store.List(ctx,hosts.DefaultListLimit,0)
+		items,err := store.List(ctx,limit,offset)
 		if err != nil{
 			logger.Error("получение хостов","error",err,"request_id",RequestID(r.Context()),)
 			http.Error(w, "не удалось получить хосты", http.StatusInternalServerError)

@@ -23,10 +23,14 @@ type hostStoreStub struct{
 	getFn func(ctx context.Context,id string)(hosts.Host,error)
 	renameFn func(ctx context.Context,id string,name string)(hosts.Host,error)
 	deleteFn func(ctx context.Context,id string)error
+	listFn func(ctx context.Context,limit int,offset int)([]hosts.Host,error)
 }
 //======================
 //ретурним подготовленные данные без обращение к постре
-func (s hostStoreStub) List(ctx context.Context,limit int,offset int)([]hosts.Host,error){return s.items,s.err}
+func (s hostStoreStub) List(ctx context.Context,limit int,offset int)([]hosts.Host,error){
+	if s.listFn != nil{return s.listFn(ctx,limit,offset)}
+	return s.items,s.err
+}
 //поведение создания задается отдельно в каждом месте
 func (s hostStoreStub) Create(ctx context.Context,name string)(hosts.Host,error){
 	if s.createFn == nil {panic("неожиданный вызов Create у hostStoreStub")}
