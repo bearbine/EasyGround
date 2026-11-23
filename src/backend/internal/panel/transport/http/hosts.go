@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"errors"
-	"io"
 
 	"github.com/bearbine/EasyGround/src/backend/internal/panel/hosts"
 )
@@ -79,36 +78,9 @@ func listHosts(store HostLister, logger *slog.Logger) http.HandlerFunc{
 //создаем обработчик запроса на добавление хоста
 func createHost(store HostCreator,logger *slog.Logger) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request){
-		r.Body = http.MaxBytesReader(w,r.Body,1024) //ограничение тело одним КБ
-	
-
-		//разбираеим джсон и запрещаем анкнойвн поля
+		//строго разбираем JSON через общую функцию
 		var request createHostRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-
-		if err := decoder.Decode(&request); err != nil{
-			var sizeErr *http.MaxBytesError
-			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge) 
-			return
-		}
-
-		http.Error(w,"некоррект JSON",http.StatusBadRequest)
-		return
-		}
-
-		//после первого JSON допускаем только конец тела запроса
-		var extra any
-		if err := decoder.Decode(&extra);
-		!errors.Is(err,io.EOF){
-			var sizeErr *http.MaxBytesError
-			if errors.As(err,&sizeErr){
-				http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge)
-				return
-			}
-			http.Error(w,"запрос должен содержать один JSON",http.StatusBadRequest)
-			return
-		}
+		if !readJSON(w,r,&request){return}
 
 		//ограничение время создания хоста
 		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
@@ -179,27 +151,9 @@ func getHost(store HostGetter,logger *slog.Logger) http.HandlerFunc{
 //переименовываем хост по ИД из адреса запроса
 func renameHost(store HostRenamer,logger *slog.Logger) http.HandlerFunc{
 	return func(w http.ResponseWriter,r *http.Request){
-		r.Body = http.MaxBytesReader(w,r.Body,1024)
-
-		//разбираем json и запрещаем неизвестные поля
+		//строго разбираем JSON через общую функцию
 		var request renameHostRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-
-		if err := decoder.Decode(&request); err != nil{
-			var sizeErr *http.MaxBytesError
-			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge);return}
-			http.Error(w,"некоррект JSON",http.StatusBadRequest)
-			return
-		}
-		//после первого джсона допускаем только конец тела запроса
-		var extra any
-		if err := decoder.Decode(&extra); !errors.Is(err,io.EOF){
-			var sizeErr *http.MaxBytesError
-			if errors.As(err,&sizeErr){http.Error(w,"слишком большой запрос",http.StatusRequestEntityTooLarge);return}
-			http.Error(w,"запрос должен содержать один JSON",http.StatusBadRequest)
-			return
-		}
+		if !readJSON(w,r,&request){return}
 
 		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)
 		defer cancel()
