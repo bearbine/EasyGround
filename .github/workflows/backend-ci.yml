@@ -47,11 +47,13 @@ jobs:
           cache-dependency-path: src/backend/go.mod
           
       - name: Prepare database role
+        env:
+          EASYGROUND_APP_PASSWORD: ci_app_test_password
         run: |
-          docker exec "${{ job.services.postgres.id }}" \
-            psql -U easyground_admin -d easyground_test \
+          docker exec -i -e EASYGROUND_APP_PASSWORD "${{ job.services.postgres.id }}" \
+            psql -X -U easyground_admin -d easyground_test \
             -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE easyground_app NOLOGIN;"
+            < ../../scripts/db/bootstrap_roles.sql
 
       - name: Install Goose
         run: go install github.com/pressly/goose/v3/cmd/goose@v3.30.1  
