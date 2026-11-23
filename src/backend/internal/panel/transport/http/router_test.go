@@ -14,7 +14,7 @@ import (
 type emptyHostStore struct{}
 //============================
 //тест маршрутов не требует постгре
-func (emptyHostStore) List(ctx context.Context)([]hosts.Host,error){return []hosts.Host{},nil}
+func (emptyHostStore) List(ctx context.Context,limit int,offset int)([]hosts.Host,error){return []hosts.Host{},nil}
 //эта подмена исполдьзуется только для проверки чтения
 func (emptyHostStore) Create(ctx context.Context,name string)(hosts.Host,error){panic("неожиданный вызов Create у emptyHostStore")}
 //получение одного хоста в этой подмене не предусмотрено

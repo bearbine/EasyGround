@@ -13,7 +13,7 @@ import (
 //описываем данные запроса на создание хоста
 type createHostRequest struct {Name string `json:"name"`}
 //описываем возможность получить список хостов
-type HostLister interface {List(ctx context.Context)([]hosts.Host, error)}
+type HostLister interface {List(ctx context.Context,limit int,offset int)([]hosts.Host,error)}
 //определяем поля хоста в HTTPответе
 type hostResponse struct{
 	ID string `json:"id"`
@@ -46,7 +46,7 @@ func listHosts(store HostLister, logger *slog.Logger) http.HandlerFunc{
 		ctx,cancel := context.WithTimeout(r.Context(),3*time.Second)//тут поставил 3 сек пока что
 		defer cancel()
 
-		items,err := store.List(ctx)
+		items,err := store.List(ctx,hosts.DefaultListLimit,0)
 		if err != nil{
 			logger.Error("получение хостов","error",err,"request_id",RequestID(r.Context()),)
 			http.Error(w, "не удалось получить хосты", http.StatusInternalServerError)

@@ -18,12 +18,14 @@ type HostStore struct{
 func NewHostStore(pool *pgxpool.Pool) *HostStore{return &HostStore{pool:pool}}
 
 //ретурним хосты в порядке адда
-func (s *HostStore) List(ctx context.Context)([]hosts.Host, error){
-	rows, err := s.pool.Query(ctx, `
+func (s *HostStore) List(ctx context.Context,limit int,offset int)([]hosts.Host,error){
+	if err := hosts.ValidatePagination(limit,offset); err != nil{return nil,err}
+	rows,err := s.pool.Query(ctx,`
 		SELECT id::text, name, created_at
 		FROM public.hosts
 		ORDER BY created_at,id
-	`)
+		LIMIT $1 OFFSET $2
+	`,limit,offset)
 	if err != nil {return nil, fmt.Errorf("запрос списка хостов %w",err)}
 	defer rows.Close() // освобождаем результат и соединение при выходе
 	

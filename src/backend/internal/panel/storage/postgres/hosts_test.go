@@ -46,7 +46,7 @@ func TestHostStoreList(t *testing.T){
 	}()
 
 	store := NewHostStore(pool)
-	items, err := store.List(ctx)
+	items,err := store.List(ctx,hosts.DefaultListLimit,0)
 	if err != nil {t.Fatalf("получение списка хостов: %v",err)}
 
 	//ищем нашу запись
@@ -272,4 +272,75 @@ func TestHostStoreDelete(t *testing.T){
 		err := store.Delete(ctx,host.ID)
 		if !errors.Is(err,hosts.ErrNotFound){t.Fatalf("ошибка:получил %v, хотя %v",err,hosts.ErrNotFound)}
 	})
+}
+//проверяем постраничное получение хостов из PostgreSQL
+func TestHostStoreListPagination(t *testing.T){
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == ""{t.Skip("нету TEST_DATABASE_URL")}
+
+	ctx,cancel := context.WithTimeout(context.Background(),10*time.Second)
+	defer cancel()
+
+	pool,err := Open(ctx,databaseURL)
+	if err != nil {t.Fatalf("подключение к тестовой базе:%v",err)}
+	defer pool.Close()
+
+	//проверка ли мы реально в тестовой базе
+	//я знаю что параноидально, но бывало что я проебывался на этом моменте и подключался к основной
+	var databaseName string
+	if err := pool.QueryRow(ctx, "SELECT current_database()").Scan(&databaseName); err != nil {t.Fatalf("проверка нейма базы: %v", err)}
+	if databaseName != "easyground_test"{t.Fatalf("для теста нужна easyground_test, а у нас %q",databaseName)}
+	//учитываем существующие записи чтобы не менять чужие данные
+	var existingCount int
+	var latestCreatedAt time.Time
+	err = pool.QueryRow(ctx,`
+		SELECT count(*), COALESCE(max(created_at),now())
+		FROM public.hosts
+	`).Scan(&existingCount,&latestCreatedAt)
+	if err != nil {t.Fatalf("получение исходного состояния: %v",err)}
+
+	//сохраняем ID только созданных этим тестом записей
+	var hostIDs []string
+
+	//удаляем только записи созданные ТОЛЬКО ТУТ
+	defer func(){
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(),5*time.Second)
+		defer cleanupCancel()
+
+		for _,id := range hostIDs{
+			if _,err := pool.Exec(cleanupCtx,"DELETE FROM public.hosts WHERE id = $1::uuid",id); err != nil{t.Errorf("удаление тестового хоста:%v",err)}
+		}
+	}()
+	//размещаем три тестовых хоста после существующих записей
+	for i := 0; i < 3; i++{
+		createdAt := latestCreatedAt.Add(time.Duration(i+1)*time.Second)
+		var id string
+
+		err = pool.QueryRow(ctx,`
+			INSERT INTO public.hosts (name,created_at)
+			VALUES ($1,$2)
+			RETURNING id::text
+		`,"pagination-test-host",createdAt).Scan(&id)
+		if err != nil {t.Fatalf("создание тестового хоста: %v",err)}
+
+		hostIDs = append(hostIDs,id)
+	}
+	store := NewHostStore(pool)
+
+	//пропускаем старые записи и получаем первые два тестовых хоста
+	firstPage,err := store.List(ctx,2,existingCount)
+	if err != nil {t.Fatalf("получение первой страницы: %v",err)}
+	if len(firstPage) != 2{t.Fatalf("размер первой страницы:получил %d, хотя 2",len(firstPage))}
+	for i,host := range firstPage{
+		if host.ID != hostIDs[i]{t.Fatalf("ID на позиции %d:получил %q, хотя %q",i,host.ID,hostIDs[i])}
+	}
+	//на второй странице остается только третий тестовый хост
+	secondPage,err := store.List(ctx,2,existingCount+2)
+	if err != nil {t.Fatalf("получение второй страницы: %v",err)}
+	if len(secondPage) != 1{t.Fatalf("размер второй страницы:получил %d, хотя 1",len(secondPage))}
+	if secondPage[0].ID != hostIDs[2]{t.Fatalf("ID:получил %q, хотя %q",secondPage[0].ID,hostIDs[2])}
+	//после последней записи должна вернуться пустая страница
+	emptyPage,err := store.List(ctx,2,existingCount+3)
+	if err != nil {t.Fatalf("получение пустой страницы: %v",err)}
+	if len(emptyPage) != 0{t.Fatalf("размер пустой страницы:получил %d, хотя 0",len(emptyPage))}
 }

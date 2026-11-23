@@ -26,7 +26,7 @@ type hostStoreStub struct{
 }
 //======================
 //ретурним подготовленные данные без обращение к постре
-func (s hostStoreStub) List(ctx context.Context)([]hosts.Host,error){return s.items,s.err}
+func (s hostStoreStub) List(ctx context.Context,limit int,offset int)([]hosts.Host,error){return s.items,s.err}
 //поведение создания задается отдельно в каждом месте
 func (s hostStoreStub) Create(ctx context.Context,name string)(hosts.Host,error){
 	if s.createFn == nil {panic("неожиданный вызов Create у hostStoreStub")}
