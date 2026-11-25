@@ -27,12 +27,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.FilterChip
 import io.github.bearbine.easyground.model.ServerState
 import androidx.compose.foundation.lazy.LazyRow
+import io.github.bearbine.easyground.model.GameServer
 
 import easyground.shared.generated.resources.*
 //=====================
 
 @Composable
-fun ServerListScreen(){
+fun ServerListScreen(
+    onServerClick: (GameServer) -> Unit = {},
+){
         //==============
         var searchQuery by rememberSaveable{
             mutableStateOf("")
@@ -120,6 +123,7 @@ fun ServerListScreen(){
             ServerCard(
                 server = server,
                 modifier = Modifier.fillMaxWidth(),
+                onClick = {onServerClick(server)},
             )
         }
     }

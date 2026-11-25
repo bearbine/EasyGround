@@ -15,4 +15,8 @@
     <string name="category_game">Game servers</string>
     <string name="category_web">Web servers</string>
     <string name="category_database">Database servers</string>
+    <string name="back_to_servers">Back to servers</string>
+    <string name="server_id">Server ID: %1$s</string>
+    <string name="server_host_id">Host ID: %1$s</string>
+    <string name="server_template">Template: %1$s</string>
 </resources>

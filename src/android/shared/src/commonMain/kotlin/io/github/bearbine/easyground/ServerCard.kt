@@ -14,7 +14,11 @@ import org.jetbrains.compose.resources.stringResource
 
 //=============================
 @Composable
-fun ServerCard(server:GameServer, modifier:Modifier = Modifier){
+fun ServerCard(
+    server:GameServer,
+    modifier:Modifier = Modifier,
+    onClick: () -> Unit = {}
+    ){
     val stateResource = when(server.observedState){
             ServerState.UNKNOWN -> Res.string.state_unknown
             ServerState.STOPPED -> Res.string.state_stopped
@@ -23,7 +27,10 @@ fun ServerCard(server:GameServer, modifier:Modifier = Modifier){
             ServerState.STOPPING -> Res.string.state_stopping
     }
     
-    Card(modifier = modifier){
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        ){
         Column(modifier = Modifier.padding(16.dp)){
                 Text(text = server.name)
                 Text(
