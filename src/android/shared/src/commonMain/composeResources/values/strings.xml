@@ -11,4 +11,8 @@
     <string name="search_servers">Search servers</string>
     <string name="no_matching_servers">No matching servers</string>
     <string name="running_only">Running only</string>
+    <string name="category_all">All servers</string>
+    <string name="category_game">Game servers</string>
+    <string name="category_web">Web servers</string>
+    <string name="category_database">Database servers</string>
 </resources>

@@ -15,7 +15,11 @@ internal val demoServers = List(20){ index ->
         id ="demo-server-${index+1}",
         hostId = demoHost.id,
         name = "Demo ${index+1}",
-        gameTemplateId = "server jar",
+        gameTemplateId = when (index%3){
+            0 -> "game-server"
+            1 -> "web-server"
+            else -> "database-server"
+        },
         memoryLimitMiB = 2048,
         observedState = if(index%2==0){
             ServerState.RUNNING
