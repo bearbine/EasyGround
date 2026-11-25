@@ -28,52 +28,57 @@ import androidx.compose.material3.FilterChip
 import io.github.bearbine.easyground.model.ServerState
 import androidx.compose.foundation.lazy.LazyRow
 import io.github.bearbine.easyground.model.GameServer
-
 import easyground.shared.generated.resources.*
+    
 //=====================
-
+@Suppress("FunctionName")
 @Composable
+
+//показ списка с поиском и фильтром
 fun ServerListScreen(
-    onServerClick: (GameServer) -> Unit = {},
+    onServerClick: (GameServer) -> Unit = {}, //callback от клика в КОНКРЕТНЫЙ обработчик
 ){
-        //==============
-        var searchQuery by rememberSaveable{
-            mutableStateOf("")
-        }
-        var runningOnly by rememberSaveable{
-            mutableStateOf(false)
-        }
-        var selectedCategory by rememberSaveable{
-            mutableStateOf<String?>(null)
-        }
-        var categories = listOf(
+    
+        //==============      
+        var searchQuery by rememberSaveable{mutableStateOf("")} //текст в строке
+        var runningOnly by rememberSaveable{mutableStateOf(false)} //включен ли фильтр включенных серверов
+        var selectedCategory by rememberSaveable{mutableStateOf<String?>(null)} //выбранная ката
+        var categories = listOf( //варианты кат
+        // да тут хардкод(пока что)        
             null to Res.string.category_all,
             "game-server" to Res.string.category_game,
             "web-server" to Res.string.category_web,
             "database-server" to Res.string.category_database,
         )
         //=====================
+        //серверы которые прошли фильтр        
         val filteredServers = demoServers.filter{server ->
+            //матч неймов подходит ли         
             val matchesName = server.name.contains(
                 searchQuery.trim(),
                 ignoreCase = true,
             )
+            //подходит ли состояние и категория
+            //доп проверки если буду расширять то не забыть сюда закинуть                        
             val matchesState = !runningOnly || server.observedState == ServerState.RUNNING
             val matchesCategory = selectedCategory == null || server.gameTemplateId == selectedCategory
 
             matchesName && matchesState && matchesCategory
         }
         //=====================
-       LazyColumn(
-        modifier = Modifier.fillMaxSize().safeContentPadding(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        //вертикальный список        
+        LazyColumn(
+        modifier = Modifier.fillMaxSize().safeContentPadding(),//занимаем все место учитывая отступы
+        contentPadding = PaddingValues(16.dp), //отступ содержимого
+        verticalArrangement = Arrangement.spacedBy(12.dp),//лонг между елементами
        ){
 
+        //демо данные
         item{
             Text(text = stringResource(Res.string.demo_mode))
         }
-
+                
+        //поле поиска
         item{
             OutlinedTextField(
                 value = searchQuery,
@@ -86,6 +91,7 @@ fun ServerListScreen(
             )
         }
 
+        //выбор категории
         item{
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -100,6 +106,7 @@ fun ServerListScreen(
             }
         }
 
+        //фильтр только запущенных
         item{
             FilterChip(
                 selected = runningOnly,
@@ -109,6 +116,8 @@ fun ServerListScreen(
                 },
             )
         }
+        
+        //сообщение если список будет пустым                
         if(filteredServers.isEmpty()){
             item{
                 Text(
@@ -119,6 +128,7 @@ fun ServerListScreen(
             }
         }
 
+        //карточки тех кто выжил и прошел фильтры
         items(filteredServers, key = {it.id}){ server ->
             ServerCard(
                 server = server,

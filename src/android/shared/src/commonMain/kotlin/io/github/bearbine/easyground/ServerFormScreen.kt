@@ -12,33 +12,36 @@ import easyground.shared.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 //=========================
+@Suppress("FunctionName")
 @Composable
+
+//сейв данных при повороте екрана
 fun ServerFormScreen(
-    onBack:()->Unit,
-    onSave:(String, Int, String)->Unit,
+    onBack:()->Unit,//callback для выхода из формы
+    onSave:(String, Int, String)->Unit,//callback при сохранении
 ){
     //================
+    //хардкоженные вары, потом поменяю    
     var serverName by rememberSaveable{mutableStateOf("")}
     var memoryInput by rememberSaveable{mutableStateOf("2048")}
     var selectedTemplateId by rememberSaveable{mutableStateOf("game-server")}
     var templateMenuExpanded by remember{mutableStateOf(false)}
 
-    //=========================
-    val nameInvalid = serverName.isBlank()
-    val memoryMiB = memoryInput.trim().toIntOrNull()
-    val memoryInvalid = memoryMiB == null || memoryMiB <= 0
-    val formValid = !nameInvalid && !memoryInvalid
+    //=========================    
+    val nameInvalid = serverName.isBlank()//пусто ли
+    val memoryMiB = memoryInput.trim().toIntOrNull()//преобразовка в инт
+    val memoryInvalid = memoryMiB == null || memoryMiB <= 0//если кто то вставит минусовые значения
+    val formValid = !nameInvalid && !memoryInvalid // зеленый свет
 
-    val templates = listOf(
+    val templates = listOf( //доступные хардкоженные шаблоны
         "game-server" to Res.string.category_game,
         "web-server" to Res.string.category_web,
         "database-server" to Res.string.category_database,
-    )
-    val selectedTemplateTitle = templates.first{
-        it.first == selectedTemplateId
-    }.second
-
+    )    
+    //поиск пары по выбранному ид и побране ресурс нейма    
+    val selectedTemplateTitle = templates.first{it.first == selectedTemplateId}.second //
     //=========================
+    //вертикально, учитываем тут клавиатуру и прокрутку
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -52,7 +55,7 @@ fun ServerFormScreen(
             text = stringResource(Res.string.add_server),
             style = MaterialTheme.typography.headlineSmall,
         )
-
+        //ввод имени сервера при пустом имени показываем ошибку
         OutlinedTextField(
             value = serverName,
             onValueChange = {serverName = it},
@@ -67,6 +70,7 @@ fun ServerFormScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        //ввод лимита памяти
         OutlinedTextField(
             value = memoryInput,
             onValueChange = {memoryInput = it},
@@ -82,6 +86,7 @@ fun ServerFormScreen(
         )
 
         //=========================
+        //кнопка выбранного шаблона        
         Box{
             Button(onClick = {templateMenuExpanded = true}){
                 Text(stringResource(selectedTemplateTitle))
@@ -104,10 +109,11 @@ fun ServerFormScreen(
         }
 
         //=========================
+        //сохранить сервер        
         Button(
             enabled = formValid,
             onClick = {
-                if(formValid && memoryMiB != null){
+                if(formValid){
                     onSave(
                         serverName.trim(),
                         memoryMiB,
@@ -119,7 +125,7 @@ fun ServerFormScreen(
         ){
             Text(stringResource(Res.string.save_server))
         }
-
+        //отменить ввод
         OutlinedButton(
             onClick = onBack,
             modifier = Modifier.fillMaxWidth(),

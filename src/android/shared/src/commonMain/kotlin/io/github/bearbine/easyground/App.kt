@@ -11,20 +11,23 @@ import io.github.bearbine.easyground.demo.demoServers
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 
 //=========================
+@Suppress("FunctionName")
 @Composable
 @Preview
 
+//выбор какой екран будет на показе у юзера
 fun App(){
     MaterialTheme{
-        var selectedServerId by rememberSaveable{
-            mutableStateOf<String?>(null)
-        }
-        val selectedServer = demoServers.find{
-            it.id == selectedServerId
-        }
+        //ид выбранного сервера, список будет нулевый    
+        var selectedServerId by rememberSaveable{ mutableStateOf<String?>(null)}
         //===================
+        //ищем данные выбранного сервера
+        val selectedServer = demoServers.find{it.id == selectedServerId}
+        //сохраняем поиск фильтры и прокрутку если перейдем кудато
         val screenStateHolder = rememberSaveableStateHolder()
         //================
+
+        
         if(selectedServer == null){
             screenStateHolder.SaveableStateProvider("server-list"){
                 ServerListScreen(
