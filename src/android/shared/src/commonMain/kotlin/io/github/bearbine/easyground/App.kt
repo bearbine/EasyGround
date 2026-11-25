@@ -3,7 +3,11 @@ package io.github.bearbine.easyground
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeContentPadding
@@ -25,17 +29,21 @@ import easyground.shared.generated.resources.*
 @Preview
 fun App(){
     MaterialTheme {
-        Column(
-            modifier = Modifier.fillMaxSize().safeContentPadding(),
-        ){
+       LazyColumn(
+        modifier = Modifier.fillMaxSize().safeContentPadding(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+       ){
+        item{
             Text(text = stringResource(Res.string.demo_mode))
-
-            demoServers.forEach { server ->
-                ServerCard(
-                    server = server,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
         }
+
+        items(demoServers, key = {it.id}){ server ->
+            ServerCard(
+                server = server,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+       }
     }
 }

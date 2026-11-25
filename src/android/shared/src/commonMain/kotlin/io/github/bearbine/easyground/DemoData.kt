@@ -10,13 +10,13 @@ internal val demoHost = Host(
     name = "demo host",
 )
 
-internal val demoServers = listOf(
+internal val demoServers = List(20){ index ->
     GameServer(
-        id ="demo-server",
+        id ="demo-server-${index+1}",
         hostId = demoHost.id,
-        name = "Demo-name",
+        name = "Demo ${index+1}",
         gameTemplateId = "server jar",
         memoryLimitMiB = 2048,
         observedState = ServerState.RUNNING,
-    ),
-)
+    )
+}
