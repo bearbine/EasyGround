@@ -1,0 +1,11 @@
+<resources>
+    <string name="server_memory">Memory: %1$d MiB</string>
+    <string name="server_state">Last known state: %1$s</string>
+
+    <string name="state_unknown">Unknown</string>
+    <string name="state_stopped">Stopped</string>
+    <string name="state_starting">Starting</string>
+    <string name="state_running">Running</string>
+    <string name="state_stopping">Stopping</string>
+    <string name="demo_mode">Demo mode — no server connection</string>
+</resources>

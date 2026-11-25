@@ -14,35 +14,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import io.github.bearbine.easyground.demo.demoServers
+import easyground.shared.generated.resources.demo_mode
+import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.painterResource
 
-import easyground.shared.generated.resources.Res
-import easyground.shared.generated.resources.compose_multiplatform
+import easyground.shared.generated.resources.*
 
 @Composable
 @Preview
-fun App() {
+fun App(){
     MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
         Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
-            }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(
+            modifier = Modifier.fillMaxSize().safeContentPadding(),
+        ){
+            Text(text = stringResource(Res.string.demo_mode))
+
+            demoServers.forEach { server ->
+                ServerCard(
+                    server = server,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-                }
+                )
             }
         }
     }
