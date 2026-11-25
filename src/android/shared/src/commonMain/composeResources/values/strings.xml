@@ -1,7 +1,6 @@
 <resources>
     <string name="server_memory">Memory: %1$d MiB</string>
     <string name="server_state">Last known state: %1$s</string>
-
     <string name="state_unknown">Unknown</string>
     <string name="state_stopped">Stopped</string>
     <string name="state_starting">Starting</string>
@@ -19,4 +18,11 @@
     <string name="server_id">Server ID: %1$s</string>
     <string name="server_host_id">Host ID: %1$s</string>
     <string name="server_template">Template: %1$s</string>
+    <string name="add_server">Add server</string>
+    <string name="server_name_label">Server name</string>
+    <string name="server_memory_label">Memory limit (MiB)</string>
+    <string name="save_server">Save server</string>
+    <string name="cancel">Cancel</string>
+    <string name="server_name_error">Enter a server name</string>
+    <string name="server_memory_error">Enter a positive whole number in MiB</string>    
 </resources>

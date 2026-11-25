@@ -6,3 +6,5 @@
 *.log
 bin/
 dist/
+/.vscode/settings.json
+/.vscode/
