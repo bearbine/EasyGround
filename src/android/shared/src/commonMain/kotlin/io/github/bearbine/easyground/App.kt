@@ -22,6 +22,8 @@ import io.github.bearbine.easyground.demo.demoServers
 import easyground.shared.generated.resources.demo_mode
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.painterResource
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.saveable.rememberSaveable
 
 import easyground.shared.generated.resources.*
 
@@ -29,6 +31,15 @@ import easyground.shared.generated.resources.*
 @Preview
 fun App(){
     MaterialTheme {
+        var searchQuery by rememberSaveable{
+            mutableStateOf("")
+        }
+        val filteredServers = demoServers.filter{server ->
+            server.name.contains(
+                searchQuery.trim(),
+                ignoreCase = true,
+            )
+        }
        LazyColumn(
         modifier = Modifier.fillMaxSize().safeContentPadding(),
         contentPadding = PaddingValues(16.dp),
@@ -37,8 +48,28 @@ fun App(){
         item{
             Text(text = stringResource(Res.string.demo_mode))
         }
+        item{
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {searchQuery = it},
+                label = {
+                    Text(stringResource(Res.string.search_servers))
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        items(demoServers, key = {it.id}){ server ->
+        if(filteredServers.isEmpty()){
+            item{
+                Text(
+                    text = stringResource(
+                        Res.string.no_matching_servers,
+                    ),
+                )
+            }
+        }
+        items(filteredServers, key = {it.id}){ server ->
             ServerCard(
                 server = server,
                 modifier = Modifier.fillMaxWidth(),

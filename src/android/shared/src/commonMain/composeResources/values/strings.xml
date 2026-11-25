@@ -8,4 +8,6 @@
     <string name="state_running">Running</string>
     <string name="state_stopping">Stopping</string>
     <string name="demo_mode">Demo mode — no server connection</string>
+    <string name="search_servers">Search servers</string>
+    <string name="no_matching_servers">No matching servers</string>
 </resources>
