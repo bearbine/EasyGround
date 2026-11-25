@@ -17,6 +17,10 @@ internal val demoServers = List(20){ index ->
         name = "Demo ${index+1}",
         gameTemplateId = "server jar",
         memoryLimitMiB = 2048,
-        observedState = ServerState.RUNNING,
+        observedState = if(index%2==0){
+            ServerState.RUNNING
+        }else{
+            ServerState.STOPPED
+        },
     )
 }

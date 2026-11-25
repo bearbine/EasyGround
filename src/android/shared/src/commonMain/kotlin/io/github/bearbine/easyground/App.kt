@@ -24,6 +24,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.FilterChip
+import io.github.bearbine.easyground.model.ServerState
 
 import easyground.shared.generated.resources.*
 
@@ -31,15 +33,24 @@ import easyground.shared.generated.resources.*
 @Preview
 fun App(){
     MaterialTheme {
+        //==============
         var searchQuery by rememberSaveable{
             mutableStateOf("")
         }
+        var runningOnly by rememberSaveable{
+            mutableStateOf(false)
+        }
+        //=====================
         val filteredServers = demoServers.filter{server ->
-            server.name.contains(
+            val matchesName = server.name.contains(
                 searchQuery.trim(),
                 ignoreCase = true,
             )
+            val matchesState = !runningOnly || server.observedState == ServerState.RUNNING
+
+            matchesName && matchesState
         }
+        //=====================
        LazyColumn(
         modifier = Modifier.fillMaxSize().safeContentPadding(),
         contentPadding = PaddingValues(16.dp),
@@ -59,7 +70,15 @@ fun App(){
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
+        item{
+            FilterChip(
+                selected = runningOnly,
+                onClick = { runningOnly = !runningOnly},
+                label = {
+                    Text(stringResource(Res.string.running_only))
+                },
+            )
+        }
         if(filteredServers.isEmpty()){
             item{
                 Text(
